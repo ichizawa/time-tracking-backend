@@ -62,29 +62,39 @@ backend/
 ```bash
 git clone https://github.com/your-username/your-repo.git
 cd backend
-2. Install dependencies
-npm install
-3. Setup Firebase
-Go to Firebase Console: https://console.firebase.google.com
-Create a project
-Enable Firestore Database
-Go to Project Settings → Service Accounts
-Generate a new private key
-Download JSON file and place it in the root:
-firebase-service-account.json
-4. Setup environment variables
+```
 
+### 2. Install dependencies
+```bash
+npm install
+```
+
+### 3. Setup Firebase
+- Go to Firebase Console: https://console.firebase.google.com
+- Create a project
+- Enable Firestore Database
+- Go to Project Settings → Service Accounts
+- Generate a new private key
+- Download JSON file and place it in the root: firebase-service-account.json
+
+### 4. Setup environment variables
+```
 Create a .env file:
 
 PORT=5000
-5. Run the server
+```
+
+### 5. Run the server
+```bash
 Development
 npm run dev
+
 Production
 npm start
-API Base URL
-http://localhost:5000/api/users
 ```
+
+## API Base URL
+http://localhost:5000/api/users
 
 ## Firestore Setup
 ```javascript
