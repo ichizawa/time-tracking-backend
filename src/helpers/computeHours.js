@@ -1,11 +1,11 @@
 function computeHours(timeIn, timeOut) {
-    const start = new Date(`1970-01-01T${timeIn}`);
-    const end = new Date(`1970-01-01T${timeOut}`);
+    const start = new Date(timeIn);
+    const end = new Date(timeOut);
 
-    let diffMs = end - start;
-    if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+    const diffMs = end.getTime() - start.getTime();
 
     const totalHours = diffMs / (1000 * 60 * 60);
+
     const hours = Math.floor(totalHours);
     const minutes = Math.round((totalHours - hours) * 60);
 

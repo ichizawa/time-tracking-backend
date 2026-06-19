@@ -2,9 +2,9 @@ const { admin, db, FieldValue } = require("../../config/firebase");
 
 exports.register = async function (req, res) {
     try {
-        const { firstName, lastName, email, password, timezone, shift_start, shift_end } = req.body;
+        const { firstName, lastName, email, password, timezone, startShift, endShift } = req.body;
 
-        if (!firstName || !lastName || !email || !password || !timezone || !shift_start || !shift_end) {
+        if (!firstName || !lastName || !email || !password || !timezone || !startShift || !endShift) {
             return res.status(400).json({ status: false, message: "First name, last name, email, password, timezone, shift start and shift end are required" });
         }
 
@@ -32,8 +32,8 @@ exports.register = async function (req, res) {
             role: "employee",
             timezone,
             schedule: {
-                start: shift_start,
-                end: shift_end,
+                start: startShift,
+                end: endShift,
             },
             isActive: false,
             createdAt: FieldValue.serverTimestamp(),
