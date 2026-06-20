@@ -16,7 +16,7 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "firebase-admin": "^14.0.0",
+    "firebase-admin": "^13.5.0",
     "jose": "^6.2.3",
     "multer": "^2.2.0",
     "serverless-http": "^4.0.0"
