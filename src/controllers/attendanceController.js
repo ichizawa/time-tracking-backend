@@ -365,9 +365,9 @@ exports.viewAllAttendance = async function (req, res) {
     await admin.verifyIdToken(token);
 
     const usersSnapshot = await db.collection("users").get();
-    console.log("Users count:", usersSnapshot.size);
+    // console.log("Users count:", usersSnapshot.size);
     const summarySnapshot = await db.collection("dailysummary").get();
-    console.log("Summary count:", summarySnapshot.size);
+    // console.log("Summary count:", summarySnapshot.size);
     const attendanceSnapshot = await db.collection("attendance").get();
 
     const usersMap = {};
@@ -430,17 +430,11 @@ exports.viewAllAttendance = async function (req, res) {
         overtime: summary.overtimeHours,
         lateMinutes: summary.lateMinutes,
         undertimeMinutes: summary.undertimeMinutes,
-        nightDifferentialHours:
-          summary.nightDifferentialHours,
+        nightDifferentialHours: summary.nightDifferentialHours,
 
-        status:
-          summary.totalWorkedHours > 0
-            ? "complete"
-            : "absent",
+        status: summary.totalWorkedHours > 0 ? "complete" : "absent",
       });
     });
-
-    console.log("Timesheets:", timesheets);
 
     return res.status(200).json({
       status: true,
@@ -449,6 +443,286 @@ exports.viewAllAttendance = async function (req, res) {
     });
   } catch (error) {
     console.error("Failed fetching All Attendance:", error);
+
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.weeklyReport = async function (req, res) {
+  try {
+    const now = new Date();
+    const day = now.getDay();
+
+    const start = new Date(now);
+    start.setDate(now.getDate() + (day === 0 ? -6 : 1 - day));
+
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const startDate = start.toLocaleDateString("en-CA");
+    const endDate = end.toLocaleDateString("en-CA");
+
+    // Get this week's attendance summaries
+    const attendanceSnap = await db
+      .collection("dailysummary")
+      .where("date", ">=", startDate)
+      .where("date", "<=", endDate)
+      .get();
+
+    const weeklySummaries = {};
+
+    attendanceSnap.forEach((doc) => {
+      const data = doc.data();
+      const uid = data.uid || data.userId;
+
+      if (!weeklySummaries[uid]) {
+        weeklySummaries[uid] = {
+          uid,
+          regularHours: 0,
+          overtimeHours: 0,
+          nightDifferentialHours: 0,
+          lateMinutes: 0,
+          undertimeMinutes: 0,
+          totalWorkedHours: 0,
+          daysWorked: 0,
+        };
+      }
+
+      weeklySummaries[uid].regularHours += data.regularHours || 0;
+      weeklySummaries[uid].overtimeHours += data.overtimeHours || 0;
+      weeklySummaries[uid].nightDifferentialHours += data.nightDifferentialHours || 0;
+      weeklySummaries[uid].lateMinutes += data.lateMinutes || 0;
+      weeklySummaries[uid].undertimeMinutes += data.undertimeMinutes || 0;
+      weeklySummaries[uid].totalWorkedHours += data.totalWorkedHours || 0;
+      weeklySummaries[uid].daysWorked += 1;
+    });
+
+    // Get all users
+    const userSnap = await db.collection("users").get();
+
+    const usersMap = {};
+
+    userSnap.forEach((doc) => {
+      const user = doc.data();
+
+      usersMap[doc.id] = {
+        fullName: user.fullName || "",
+        email: user.email || "",
+        role: user.role || "",
+      };
+    });
+
+    // Merge user info with weekly summary
+    const result = Object.values(weeklySummaries).map((summary) => ({
+      ...summary,
+      fullName: usersMap[summary.uid]?.fullName || "Unknown User",
+      email: usersMap[summary.uid]?.email || "",
+      role: usersMap[summary.uid]?.role || "",
+    }));
+
+    return res.json({
+      status: true,
+      body: result,
+    });
+  } catch (error) {
+    console.error("Weekly summary error:", error);
+
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.dailyReport = async function (req, res) {
+  try {
+    const today = new Date().toLocaleDateString("en-CA");
+
+    // Daily Summary
+    const summarySnap = await db
+      .collection("dailysummary")
+      .where("date", "==", today)
+      .get();
+
+    // Attendance Records
+    const attendanceSnap = await db
+      .collection("attendance")
+      .where("date", "==", today)
+      .get();
+
+    // Users
+    const usersSnap = await db.collection("users").get();
+
+    const usersMap = {};
+
+    usersSnap.forEach((doc) => {
+      const user = doc.data();
+
+      usersMap[doc.id] = {
+        fullName: user.fullName || "",
+        email: user.email || "",
+        role: user.role || "",
+      };
+    });
+
+    // Group attendance by user
+    const attendanceMap = {};
+
+    attendanceSnap.forEach((doc) => {
+      const attendance = doc.data();
+      const uid = attendance.uid;
+
+      if (!attendanceMap[uid]) {
+        attendanceMap[uid] = {
+          timeIn: null,
+          timeOut: null,
+        };
+      }
+
+      if (attendance.type === "Time-in") {
+        attendanceMap[uid].timeIn = attendance.time;
+      }
+
+      if (attendance.type === "Time-out") {
+        attendanceMap[uid].timeOut = attendance.time;
+      }
+    });
+
+    const result = [];
+
+    summarySnap.forEach((doc) => {
+      const summary = doc.data();
+      const uid = summary.uid || summary.userId;
+
+      result.push({
+        uid,
+        date: summary.date,
+
+        fullName: usersMap[uid]?.fullName || "Unknown User",
+        email: usersMap[uid]?.email || "",
+        role: usersMap[uid]?.role || "",
+
+        timeIn: format24Hour(attendanceMap[uid]?.timeIn) || null,
+        timeOut: format24Hour(attendanceMap[uid]?.timeOut) || null,
+
+        regularHours: summary.regularHours || 0,
+        overtimeHours: summary.overtimeHours || 0,
+        nightDifferentialHours: summary.nightDifferentialHours || 0,
+        lateMinutes: summary.lateMinutes || 0,
+        undertimeMinutes: summary.undertimeMinutes || 0,
+        totalWorkedHours: summary.totalWorkedHours || 0,
+      });
+    });
+
+    return res.status(200).json({
+      status: true,
+      body: result,
+      message: "Daily report fetched successfully",
+    });
+  } catch (error) {
+    console.error("Error fetching daily report:", error);
+
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.updateAttendance = async function (req, res) {
+  try {
+    const {
+      id,
+      uid,
+      date,
+      clockIn,
+      clockOut,
+      totalHours,
+      regularHours,
+      overtime,
+      lateMinutes,
+      undertimeMinutes,
+      nightDifferentialHours,
+      status,
+    } = req.body;
+
+    if (!id || !uid || !date) {
+      return res.status(400).json({
+        status: false,
+        message: "id, uid and date are required",
+      });
+    }
+
+    const batch = db.batch();
+
+    const summaryRef = db.collection("dailysummary").doc(id);
+
+    batch.set(
+      summaryRef,
+      {
+        userId: uid,
+        date,
+
+        totalWorkedHours: Number(totalHours) || 0,
+        regularHours: Number(regularHours) || 0,
+        overtimeHours: Number(overtime) || 0,
+
+        lateMinutes: Number(lateMinutes) || 0,
+        undertimeMinutes: Number(undertimeMinutes) || 0,
+
+        nightDifferentialHours:
+          Number(nightDifferentialHours) || 0,
+
+        status,
+
+        computedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const attendanceSnap = await db
+      .collection("attendance")
+      .where("uid", "==", uid)
+      .where("date", "==", date)
+      .get();
+
+    attendanceSnap.forEach((doc) => {
+      const attendance = doc.data();
+
+      if (attendance.type === "Time-in" && clockIn) {
+        const timeInISO = new Date(
+          `${date}T${clockIn}:00`
+        ).toISOString();
+
+        batch.update(doc.ref, {
+          time: timeInISO,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (attendance.type === "Time-out" && clockOut) {
+        const timeOutISO = new Date(
+          `${date}T${clockOut}:00`
+        ).toISOString();
+
+        batch.update(doc.ref, {
+          time: timeOutISO,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    });
+
+    await batch.commit();
+
+    return res.status(200).json({
+      status: true,
+      message: "Attendance updated successfully",
+    });
+  } catch (error) {
+    console.error("Error updating attendance:", error);
 
     return res.status(500).json({
       status: false,
