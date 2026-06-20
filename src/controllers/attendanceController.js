@@ -3,6 +3,7 @@ const {
   calculateNightDifferential,
 } = require("../helpers/calculateNightDifferential");
 const { computeHours } = require("../helpers/computeHours");
+const { format24Hour } = require("../helpers/format24Hours");
 
 exports.punchIn = async function (req, res) {
   try {
@@ -321,8 +322,8 @@ exports.recentAttendance = async function (req, res) {
 
     const attendanceHistory = summaries.map((summary) => ({
       date: summary.date,
-      timeIn: attendanceMap[summary.date]?.timeIn || null,
-      timeOut: attendanceMap[summary.date]?.timeOut || null,
+      timeIn: format24Hour(attendanceMap[summary.date]?.timeIn) || null,
+      timeOut: format24Hour(attendanceMap[summary.date]?.timeOut) || null,
       regularHours: summary.regularHours || 0,
       overtimeHours: summary.overtimeHours || 0,
       lateMinutes: summary.lateMinutes || 0,
@@ -342,6 +343,112 @@ exports.recentAttendance = async function (req, res) {
     });
   } catch (error) {
     console.error("Failed fetching Recent Attendance:", error);
+
+    return res.status(500).json({
+      status: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+exports.viewAllAttendance = async function (req, res) {
+  try {
+    const token = req.headers.authorization?.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized",
+      });
+    }
+
+    await admin.verifyIdToken(token);
+
+    const usersSnapshot = await db.collection("users").get();
+    console.log("Users count:", usersSnapshot.size);
+    const summarySnapshot = await db.collection("dailysummary").get();
+    console.log("Summary count:", summarySnapshot.size);
+    const attendanceSnapshot = await db.collection("attendance").get();
+
+    const usersMap = {};
+
+    usersSnapshot.forEach((doc) => {
+      const user = doc.data();
+      usersMap[user.uid] = user;
+    });
+
+    const attendanceMap = {};
+
+    attendanceSnapshot.forEach((doc) => {
+      const attendance = doc.data();
+
+      const key = `${attendance.uid}_${attendance.date}`;
+
+      if (!attendanceMap[key]) {
+        attendanceMap[key] = {
+          timeIn: null,
+          timeOut: null,
+        };
+      }
+
+      if (attendance.type === "Time-in") {
+        attendanceMap[key].timeIn = attendance.time;
+      }
+
+      if (attendance.type === "Time-out") {
+        attendanceMap[key].timeOut = attendance.time;
+      }
+    });
+
+    const timesheets = [];
+
+    summarySnapshot.forEach((doc) => {
+      const summary = doc.data();
+
+      const user = usersMap[summary.userId];
+
+      if (!user) return;
+
+      const attendance =
+        attendanceMap[`${summary.userId}_${summary.date}`] || {};
+
+      timesheets.push({
+        id: doc.id,
+
+        uid: user.uid,
+        employee: user.fullName,
+        email: user.email,
+        role: user.role,
+
+        date: summary.date,
+
+        clockIn: format24Hour(attendance.timeIn) || null,
+        clockOut: format24Hour(attendance.timeOut) || null,
+
+        totalHours: summary.totalWorkedHours,
+        regularHours: summary.regularHours,
+        overtime: summary.overtimeHours,
+        lateMinutes: summary.lateMinutes,
+        undertimeMinutes: summary.undertimeMinutes,
+        nightDifferentialHours:
+          summary.nightDifferentialHours,
+
+        status:
+          summary.totalWorkedHours > 0
+            ? "complete"
+            : "absent",
+      });
+    });
+
+    console.log("Timesheets:", timesheets);
+
+    return res.status(200).json({
+      status: true,
+      body: timesheets,
+      message: "All Attendance fetched successfully",
+    });
+  } catch (error) {
+    console.error("Failed fetching All Attendance:", error);
 
     return res.status(500).json({
       status: false,
