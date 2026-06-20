@@ -8,4 +8,6 @@ router.get("/weekly-report", require("../controllers/attendanceController").week
 
 router.put("/update-attendance", require("../controllers/attendanceController").updateAttendance);
 
+router.get("/dashboard", require("../controllers/adminDashboardController").getDashboard);
+
 module.exports = router;

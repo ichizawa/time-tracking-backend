@@ -46,6 +46,32 @@ exports.punchIn = async function (req, res) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
+    const summaryRef = db.collection("dailysummary").doc(`${uid}_${date}`);
+
+    const summaryDoc = await summaryRef.get();
+
+    if (!summaryDoc.exists) {
+      await summaryRef.set({
+        userId: uid,
+        date,
+
+        timeIn: timestamp,
+        timeOut: null,
+
+        totalWorkedHours: 0,
+        regularHours: 0,
+        overtimeHours: 0,
+        nightDifferentialHours: 0,
+        lateMinutes: 0,
+        undertimeMinutes: 0,
+
+        status: "Active",
+
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
     return res.status(201).json({
       status: true,
       message: "Punched in successfully",
@@ -158,20 +184,21 @@ exports.punchOut = async function (req, res) {
 
     const summaryRef = db.collection("dailysummary").doc(`${uid}_${date}`);
 
-    await summaryRef.set(
-      {
-        userId: uid,
-        date,
-        totalWorkedHours,
-        regularHours,
-        overtimeHours,
-        nightDifferentialHours,
-        lateMinutes,
-        undertimeMinutes,
-        computedAt: FieldValue.serverTimestamp(),
-      },
-      { merge: true },
-    );
+    await summaryRef.update({
+      timeOut: timestamp,
+
+      totalWorkedHours,
+      regularHours,
+      overtimeHours,
+      nightDifferentialHours,
+      lateMinutes,
+      undertimeMinutes,
+
+      status: "Completed",
+
+      computedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
 
     await db.collection("users").doc(uid).update({
       isActive: false,
