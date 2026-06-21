@@ -7,6 +7,7 @@ const { getAuth } = require("firebase-admin/auth");
 // const app = initializeApp({
 //   credential: cert(serviceAccount),
 // });
+
 const app = initializeApp({
   credential: cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
