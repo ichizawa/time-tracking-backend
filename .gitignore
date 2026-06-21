@@ -1,6 +1,6 @@
 # Dependencies
 
-node_modules/
+.node_modules
 
 # Environment Variables
 
@@ -60,3 +60,5 @@ temp/
 
 .npm/
 .vercel
+
+timetracker-test-8746c-firebase-adminsdk-fbsvc-3febcd410b.json
