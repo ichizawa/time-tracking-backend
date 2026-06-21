@@ -1,17 +1,19 @@
 # Dependencies
-
-.node_modules
+node_modules/
 
 # Environment Variables
-
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Logs
+# Firebase Admin SDK Keys
+firebase-adminsdk*.json
+serviceAccountKey.json
+timetracker-test-8746c-firebase-adminsdk-fbsvc-3febcd410b.json
 
+# Logs
 logs/
 *.log
 npm-debug.log*
@@ -19,46 +21,36 @@ yarn-debug.log*
 yarn-error.log*
 
 # Runtime files
-
 pids
 *.pid
 *.seed
 *.pid.lock
 
 # Coverage
-
 coverage/
 
 # Build output
-
 dist/
 build/
 
 # Cache
-
 .cache/
 .parcel-cache/
 
 # OS Files
-
 .DS_Store
 Thumbs.db
 
 # IDE / Editor
-
 .vscode/
 .idea/
 *.swp
 *.swo
 
 # Temporary files
-
 tmp/
 temp/
 
 # Optional npm cache
-
 .npm/
 .vercel
-
-timetracker-test-8746c-firebase-adminsdk-fbsvc-3febcd410b.json
